@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/LastSprint/InfrastructureSlackApp/logging"
 	rep "github.com/LastSprint/InfrastructureSlackApp/repositories"
 	"github.com/LastSprint/InfrastructureSlackApp/services/pipelines"
 	"github.com/LastSprint/InfrastructureSlackApp/utils"
@@ -45,7 +46,7 @@ func main() {
 	db, err := initialize()
 
 	if err != nil {
-		utils.Loger.WithFields(logrus.Fields{
+		logging.Loger.WithFields(logrus.Fields{
 			"Error": err,
 		}).Fatal("Cant initialize DB context")
 	}
@@ -53,7 +54,7 @@ func main() {
 	pipeline := startPipiline(commandName(os.Args[2]), db)
 
 	if pipeline == nil {
-		utils.Loger.WithFields(logrus.Fields{
+		logging.Loger.WithFields(logrus.Fields{
 			"args": os.Args[1:],
 		}).Debug("Pipileni is nil")
 		return
@@ -63,7 +64,7 @@ func main() {
 
 	pipeline.InitPipeline()
 
-	utils.Loger.WithFields(logrus.Fields{
+	logging.Loger.WithFields(logrus.Fields{
 		"pipeline":  os.Args[2],
 		"startTime": startTime,
 		"endTime":   time.Now(),
@@ -75,7 +76,7 @@ func main() {
 		return
 	}
 
-	utils.Loger.WithFields(logrus.Fields{
+	logging.Loger.WithFields(logrus.Fields{
 		"Error": err,
 	}).Error("Can't close DB connection")
 }
@@ -84,9 +85,9 @@ func initialize() (*rep.DBContext, error) {
 	args := os.Args[1:]
 
 	if args[0] == "release" {
-		utils.ConfigureLog(utils.Release)
+		logging.ConfigureLog(logging.Release)
 	} else {
-		utils.ConfigureLog(utils.Test)
+		logging.ConfigureLog(logging.Test)
 	}
 
 	return getDbContext(args)

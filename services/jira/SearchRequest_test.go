@@ -266,3 +266,38 @@ func TestMakeJiraRequestRightWithoutAssignee(t *testing.T) {
 		t.Fatal(result)
 	}
 }
+
+func TestMakeJiraRequestRightWithProject(t *testing.T) {
+
+	// Arrange
+
+	model := SearchRequest{
+		ProjectID:        "1",
+		IncludedStatuses: []string{"2"},
+		ExcludedStatuses: []string{"3"},
+		IncludedTypes:    []string{"4"},
+		ExcludedTypes:    []string{"5"},
+		Ordering: &OrderingModel{
+			OrderTarget: "6",
+			Type:        Ascending,
+		},
+		Priorities: []string{"7"},
+	}
+
+	awaiting := "project = 1 and status in (\"2\") " +
+		"and status not in (\"3\") " +
+		"and issuetype in (\"4\") " +
+		"and issuetype not in (\"5\") " +
+		"and priority in (\"7\") " +
+		"ORDER BY 6 ASC"
+
+	// Act
+
+	result := model.MakeJiraRequest()
+
+	// Assert
+
+	if result != awaiting {
+		t.Fatal(result)
+	}
+}

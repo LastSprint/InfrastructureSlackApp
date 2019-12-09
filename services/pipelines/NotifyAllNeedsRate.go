@@ -1,9 +1,8 @@
 package pipelines
 
 import (
+	log "github.com/LastSprint/InfrastructureSlackApp/logging"
 	"github.com/LastSprint/InfrastructureSlackApp/repositories"
-	"github.com/LastSprint/InfrastructureSlackApp/utils"
-	"github.com/sirupsen/logrus"
 )
 
 // NotifyAllNeedsRate пайплайн для отправки уведомления о неоценненых задачах для всех пользователей.
@@ -17,26 +16,12 @@ func (pipeline *NotifyAllNeedsRate) InitPipeline() (bool, error) {
 	users, err := pipeline.Repo.ReadAllDevelopers()
 
 	if err != nil {
-
-
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline": "NotifyAllNeedsRate",
-			"isSended": false,
-			"error": err,
-			"reason": 0,
-		}).Info("ANALYTICS_SYSTEM")
-
+		log.PipelineByName(log.NotifyAllNeedsRate, err, false, log.DataReading, nil)
 		return false, err
 	}
 
 	if len(users) == 0 {
-
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline": "NotifyAllNeedsRate",
-			"isSended": false,
-			"reason": 1,
-		}).Info("ANALYTICS_SYSTEM")
-
+		log.PipelineByName(log.NotifyAllNeedsRate, err, false, log.ContentIsEmpty, nil)
 		return false, nil
 	}
 

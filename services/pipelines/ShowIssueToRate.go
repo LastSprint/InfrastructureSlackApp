@@ -7,7 +7,8 @@ import (
 	"github.com/LastSprint/InfrastructureSlackApp/services/jira"
 	"github.com/LastSprint/InfrastructureSlackApp/services/slack"
 	"github.com/LastSprint/InfrastructureSlackApp/utils"
-	"github.com/sirupsen/logrus"
+
+	log "github.com/LastSprint/InfrastructureSlackApp/logging"
 )
 
 // ShowIssueToRatePipeline пайплайн для отправки сообщения о задачах, которые нужно оценить.
@@ -30,6 +31,7 @@ var statuses = []string{
 func (pipeline *ShowIssueToRatePipeline) InitPipeline() (bool, error) {
 
 	request := jira.SearchRequest{
+		ProjectID:        pipeline.User.ProjectID,
 		Assignee:         pipeline.User.JiraID,
 		IncludedStatuses: statuses,
 		ExcludedTypes:    []string{mj.IssueTypeServiceTask, mj.IssueTypeTestExecuted},
@@ -38,26 +40,12 @@ func (pipeline *ShowIssueToRatePipeline) InitPipeline() (bool, error) {
 	issues, err := jira.LoadIssues(request)
 
 	if err != nil {
-
-		utils.Loger.WithFields(logrus.Fields{
-			"user":     pipeline.User,
-			"pipeline": "ShowIssueToRatePipeline",
-			"isSended": false,
-			"error":    err,
-			"reason":   1,
-		}).Info("ANALYTICS")
-
+		log.PipelineByName(log.ShowIssueToRatePipeline, err, false, log.DataReading, pipeline.User)
 		return false, err
 	}
 
 	if len(issues.Issues) == 0 {
-		utils.Loger.WithFields(logrus.Fields{
-			"user":     pipeline.User,
-			"pipeline": "ShowIssueToRatePipeline",
-			"isSended": false,
-			"error":    "Issues are empty",
-			"reason":   2,
-		}).Info("ANALYTICS")
+		log.PipelineByName(log.ShowIssueToRatePipeline, err, false, log.ContentIsEmpty, pipeline.User)
 		return false, nil
 	}
 
@@ -76,15 +64,7 @@ func (pipeline *ShowIssueToRatePipeline) InitPipeline() (bool, error) {
 
 	if unemMsg == nil {
 		if zrMsg == nil {
-
-			utils.Loger.WithFields(logrus.Fields{
-				"user":     pipeline.User,
-				"pipeline": "ShowIssueToRatePipeline",
-				"isSended": false,
-				"error":    "All issue groups are empty",
-				"reason":   3,
-			}).Info("ANALYTICS")
-
+			log.PipelineByName(log.ShowIssueToRatePipeline, err, false, log.AnalyzedDataIsEmpty, pipeline.User)
 			return false, nil
 		}
 
@@ -101,14 +81,9 @@ func (pipeline *ShowIssueToRatePipeline) InitPipeline() (bool, error) {
 
 	err = slack.SendMessage(slackMsg)
 
-	utils.Loger.WithFields(logrus.Fields{
-		"user":               pipeline.User,
-		"pipeline":           "ShowIssueToRatePipeline",
-		"isSended":           err == nil,
-		"error":              err,
-		"unestimatedCount":   unMsgLen,
-		"zeroRemainingCount": zrMsgLen,
-	}).Info("ANALYTICS")
+	payload := map[string]interface{}{"unestimatedCount": unMsgLen, "zeroRemainingCount": zrMsgLen}
+
+	log.PipelineByName(log.ShowIssueToRatePipeline, err, err == nil, log.Successful, payload)
 
 	if err != nil {
 		return false, err

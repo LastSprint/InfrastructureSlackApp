@@ -23,6 +23,8 @@ const (
 	JiraFieldTimespent string = "timespent"
 	// JiraFieldPriority приоритет Jira-итема.
 	JiraFieldPriority string = "priority"
+	// JiraFieldProject имя или ключ проекта в Jira.
+	JiraFieldProject string = "project"
 )
 
 var acceptedFields = []string{

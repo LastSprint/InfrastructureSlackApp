@@ -1,12 +1,12 @@
 package pipelines
 
 import (
+	log "github.com/LastSprint/InfrastructureSlackApp/logging"
 	models "github.com/LastSprint/InfrastructureSlackApp/models/jira"
 	"github.com/LastSprint/InfrastructureSlackApp/models/slack"
 	"github.com/LastSprint/InfrastructureSlackApp/repositories"
 	"github.com/LastSprint/InfrastructureSlackApp/services/jira"
 	"github.com/LastSprint/InfrastructureSlackApp/utils"
-	"github.com/sirupsen/logrus"
 
 	sl_serv "github.com/LastSprint/InfrastructureSlackApp/services/slack"
 )
@@ -21,12 +21,7 @@ func (pipeline *NotifyTeamleadsAboutBlocked) InitPipeline() (bool, error) {
 	leads, err := pipeline.Repo.ReadLeadDevelopers()
 
 	if err != nil {
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline": "NotifyTeamleadsAboutBlocked",
-			"isSended": false,
-			"error":    err,
-			"reason":   0,
-		}).Info("ANALYTICS_SYSTEM")
+		log.PipelineByName(log.NotifyTeamleadsAboutBlocked, err, false, log.DataReading, nil)
 		return false, err
 	}
 
@@ -41,22 +36,12 @@ func (pipeline *NotifyTeamleadsAboutBlocked) InitPipeline() (bool, error) {
 		issues, err := jira.LoadIssues(request)
 
 		if err != nil {
-			utils.Loger.WithFields(logrus.Fields{
-				"pipeline": "NotifyTeamleadsAboutBlocked",
-				"isSended": false,
-				"reason":   1,
-				"user":     user,
-			}).Info("ANALYTICS")
+			log.PipelineByName(log.NotifyTeamleadsAboutBlocked, err, false, log.DataReading, user)
 			continue
 		}
 
 		if len(issues.Issues) == 0 {
-			utils.Loger.WithFields(logrus.Fields{
-				"pipeline": "NotifyTeamleadsAboutBlocked",
-				"isSended": false,
-				"reason":   2,
-				"user":     user,
-			}).Info("ANALYTICS")
+			log.PipelineByName(log.NotifyTeamleadsAboutBlocked, err, false, log.ContentIsEmpty, user)
 			continue
 		}
 
@@ -74,13 +59,9 @@ func (pipeline *NotifyTeamleadsAboutBlocked) InitPipeline() (bool, error) {
 
 		err = sl_serv.SendMessage(message)
 
-		utils.Loger.WithFields(logrus.Fields{
-			"user":        user,
-			"pipeline":    "NotifyTeamleadsAboutBlocked",
-			"isSended":    err == nil,
-			"Error":       err,
-			"IssuesCount": len(issues.Issues),
-		}).Info("ANALYTICS")
+		logPayload := map[string]interface{}{"issueCount": len(issues.Issues), "user": user}
+
+		log.PipelineByName(log.NotifyTeamleadsAboutBlocked, err, err == nil, log.Successful, logPayload)
 	}
 	return true, err
 }

@@ -7,12 +7,12 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	log "github.com/LastSprint/InfrastructureSlackApp/logging"
 	models "github.com/LastSprint/InfrastructureSlackApp/models/figma"
 	slackModel "github.com/LastSprint/InfrastructureSlackApp/models/slack"
 	"github.com/LastSprint/InfrastructureSlackApp/repositories"
 	"github.com/LastSprint/InfrastructureSlackApp/services/slack"
 	"github.com/LastSprint/InfrastructureSlackApp/utils"
-	"github.com/sirupsen/logrus"
 )
 
 // FigmaVersionCheck пайплайн для отправки уведомления о изменения в Figma.
@@ -27,23 +27,12 @@ func (pipeline *FigmaVersionCheck) InitPipeline() (bool, error) {
 	files, err := pipeline.Repo.ReadAllFiles()
 
 	if err != nil {
-
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline": "FigmaVersionCheck",
-			"isSended": false,
-			"error":    err,
-			"reason":   0,
-		}).Info("ANALYTICS_SYSTEM")
-
+		log.PipelineByName(log.FigmaVersionCheck, err, false, log.DataReading, nil)
 		return false, err
 	}
 
 	if len(files) == 0 {
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline": "FigmaVersionCheck",
-			"isSended": false,
-			"reason":   1,
-		}).Info("ANALYTICS_SYSTEM")
+		log.PipelineByName(log.FigmaVersionCheck, nil, false, log.ContentIsEmpty, nil)
 		return false, err
 	}
 
@@ -62,13 +51,7 @@ func loadFigmaData(file *models.FigmaProjectFileModel, rep repositories.FigmaFil
 	)
 
 	if err != nil {
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline":    "FigmaVersionCheck",
-			"isSended":    false,
-			"error":       err,
-			"reason":      -1,
-			"description": "Cant create request to figma",
-		}).Info("ANALYTICS_SYSTEM")
+		log.PipelineByName(log.FigmaVersionCheck, err, false, log.CantCreateRequest, file)
 		return
 	}
 
@@ -79,13 +62,7 @@ func loadFigmaData(file *models.FigmaProjectFileModel, rep repositories.FigmaFil
 	resp, err := client.Do(request)
 
 	if err != nil {
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline":    "FigmaVersionCheck",
-			"isSended":    false,
-			"error":       err,
-			"reason":      -1,
-			"description": "request failed",
-		}).Info("ANALYTICS_SYSTEM")
+		log.PipelineByName(log.FigmaVersionCheck, err, false, log.DataReading, file)
 		return
 	}
 
@@ -94,13 +71,7 @@ func loadFigmaData(file *models.FigmaProjectFileModel, rep repositories.FigmaFil
 	bd, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline":    "FigmaVersionCheck",
-			"isSended":    false,
-			"error":       err,
-			"reason":      -1,
-			"description": "body reading failed",
-		}).Info("ANALYTICS_SYSTEM")
+		log.PipelineByName(log.FigmaVersionCheck, err, false, log.DataReading, resp.Body)
 		return
 	}
 
@@ -110,40 +81,31 @@ func loadFigmaData(file *models.FigmaProjectFileModel, rep repositories.FigmaFil
 	err = json.Unmarshal(bd, &figmaData)
 
 	if err != nil {
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline":    "FigmaVersionCheck",
-			"isSended":    false,
-			"error":       err,
-			"reason":      -1,
-			"description": "parsing failed",
-		}).Info("ANALYTICS_SYSTEM")
+		log.PipelineByName(log.FigmaVersionCheck, err, false, log.DataReading, nil)
 		return
 	}
 
 	if file.FileVersion.CreatedAt == figmaData.Versions[0].CreatedAt {
-		utils.Loger.WithFields(logrus.Fields{
-			"pipeline": "FigmaVersionCheck",
-			"isSended": false,
-			"reason":   3,
-		}).Info("ANALYTICS_SYSTEM")
+		log.PipelineByName(log.FigmaVersionCheck, nil, false, log.FigmaHistoryNotChanged, file)
 		return
 	}
 
 	file.FileVersion = &figmaData.Versions[0]
 	rep.UpdateFile(file)
 
+	slackMessage := file.FileVersion.User.Handle
+
+	slackMessage += " что-то поменял в макете https://www.figma.com/file/"
+
+	slackMessage += file.FileKey + "\n" + "Последнее изменение: " + file.FileVersion.CreatedAt
+
 	msg := slackModel.PostChatMessage{
-		Text:       file.FileVersion.User.Handle + " что-то поменял в макете https://www.figma.com/file/" + file.FileKey + "\n" + "Последнее изменение: " + file.FileVersion.CreatedAt,
+		Text:       slackMessage,
 		Channel:    file.SlackID,
 		IsMarkdown: false,
 	}
 
 	err = slack.SendMessage(msg)
 
-	utils.Loger.WithFields(logrus.Fields{
-		"version":  file.FileVersion,
-		"pipeline": "NotifyManagersAboutBlocked",
-		"isSended": err == nil,
-		"Error":    err,
-	}).Info("ANALYTICS")
+	log.PipelineByName(log.FigmaVersionCheck, err, err == nil, log.Successful, file)
 }

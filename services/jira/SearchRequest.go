@@ -18,12 +18,18 @@ type SearchRequest struct {
 	// ExcludedTypes типы Jira-итемов, которые НЕ НУЖНО получать в этот на этот запрос.
 	// Константны описаны в пакете models/jira
 	ExcludedTypes []string
-	// Assignee тот, на кого назначен Jira-итем.
-	Assignee string
-	// Ordering опциональная сортировка.
-	Ordering *OrderingModel
+
 	// Priorities приортеты Jira-итемов, которые нужно включить в выдачу.
 	Priorities []string
+
+	// Assignee тот, на кого назначен Jira-итем.
+	Assignee string
+
+	// ProjectId id проекта в Jira.
+	ProjectID string
+
+	// Ordering опциональная сортировка.
+	Ordering *OrderingModel
 }
 
 // MakeJiraRequest конвертирует структуру в строку JQL запроса.
@@ -33,6 +39,10 @@ func (req SearchRequest) MakeJiraRequest() string {
 
 	if len(req.Assignee) != 0 {
 		result = append(result, JiraFieldAssignee+" = "+req.Assignee)
+	}
+
+	if len(req.ProjectID) != 0 {
+		result = append(result, JiraFieldProject+" = "+req.ProjectID)
 	}
 
 	if str := utils.JoinByCharacter(req.IncludedStatuses, ",", "\""); len(str) != 0 {
